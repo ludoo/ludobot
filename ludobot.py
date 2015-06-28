@@ -228,43 +228,6 @@ def _do_quote(*args):
 
 @app.route("/ludo/", methods=['POST'])
 def ludobot():
-    """
-    {
-        "update_id":303455743,
-        "message":{
-            "message_id":7,
-            "from":{
-                "id":10274692,"first_name":"Ludovico","last_name":"Magnocavallo","username":"ludoo"
-            },
-            "chat":{
-                "id":10274692,"first_name":"Ludovico","last_name":"Magnocavallo","username":"ludoo"
-            },
-            "date":1435336725,
-            "text":"abc abc"
-        }
-    }
-    
-    {
-        u'message': {
-            u'chat': {u'id': -31394780, u'title': u'test'},
-            u'date': 1435344346,
-            u'from': {
-                u'first_name': u'Ludovico',
-                u'id': 10274692,
-                u'last_name': u'Magnocavallo',
-                u'username': u'ludoo'
-            },
-            u'message_id': 23,
-            u'new_chat_participant': {
-                u'first_name': u'ludo',
-                u'id': 108651160,
-                u'username': u'LudoBot'
-            }
-        },
-        u'update_id': 303455750
-    }
-
-    """
     
     try:
         data = json.loads(request.data)
