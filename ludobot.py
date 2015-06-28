@@ -10,7 +10,6 @@ from flask import Flask, request, abort
 
 
 APP_CONFIG = 'bot.cfg'
-TOKEN = '108651160:AAHdiIVKqjOf58KkfhvkIQthoL3FSSXNCe8'
 BASE_URL = 'https://api.telegram.org/bot'
 GOOGLE_URL = 'http://finance.google.com/finance/info?client=ig&q='
 DEBUG = True
