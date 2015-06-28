@@ -51,12 +51,15 @@ def get(url, params=None, no_body=False):
     else:
         c.setopt(pycurl.WRITEFUNCTION, b.write)
     
-    url = url if isinstance(url, str) else url.encode('utf-8')
+    if isinstance(url, unicode):
+        url = url.encode('utf-8')
     
     if params:
         quoted_params = urlencode(params)
         if '?' not in url:
             url += '?'
+        elif not url.endswith('&') or not url.endswith('?'):
+            url += '&'
         url += quoted_params
 
     logger.debug(url)
@@ -147,6 +150,12 @@ def get_commands():
         if not callable(func) or not hasattr(func, '_command_description'):
             continue
         yield name, func
+
+
+@bot_command
+def _do_start(*args):
+    
+    return 'Welcome!\nThis bot supports the following commands:\n' + _do_help()
 
 
 @bot_command
