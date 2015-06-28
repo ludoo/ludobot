@@ -108,6 +108,8 @@ def get_commands():
 @bot_command
 def _do_help(*args):
     
+    buffer = []
+
     for name, func in sorted(get_commands()):
         
         if not func._command_description:
@@ -256,7 +258,7 @@ def ludobot():
     
     try:
         response = requests.get(_telegram_api_url('sendMessage'), params={
-            'chat_id':data['message']['chat']['id']),
+            'chat_id':data['message']['chat']['id'],
             'text': output
         })
     except requests.exceptions.RequestException, e:
