@@ -22,7 +22,6 @@ logging.basicConfig(
     level=logging.INFO if not DEBUG else logging.DEBUG,
     stream=sys.stdout
 )
-logger = logging.getLogger()
 
 
 ### flask app init
@@ -31,12 +30,12 @@ app = Flask(__name__)
 try:
     app.config.from_pyfile(APP_CONFIG)
 except IOError, e:
-    logger.critical("No configuration file found: %s" % e)
+    app.logger.critical("No configuration file found: %s" % e)
     raise SystemExit(1)
 
 
 if not app.config.get('TOKEN'):
-    logger.critical("No 'TOKEN' key found in app.config")
+    app.logger.critical("No 'TOKEN' key found in app.config")
     raise SystemExit(1)
 
 
@@ -63,7 +62,7 @@ def get(url, params=None, no_body=False):
             url += '&'
         url += quoted_params
 
-    logger.debug(url)
+    app.logger.debug(url)
 
     c.setopt(pycurl.URL, url)
     c.setopt(pycurl.CONNECTTIMEOUT, 5)
@@ -228,7 +227,7 @@ def _do_quote(*args):
     buffer = []
     
     for r in result:
-        logger.debug(', '.join(r.keys()))
+        app.logger.debug(', '.join(r.keys()))
         buffer.append(
             '%(e)s:%(t)s %(l)s %(cp)s%% %(lt)s' % r # \next hours %(el)s %(ecp)s%% %(elt)s
         )
@@ -242,8 +241,8 @@ def ludobot():
     try:
         data = json.loads(request.data)
     except ValueError, e:
-        logger.critical("error decoding webhook json data: %s" % e)
-        logger.debug(request.data)
+        app.logger.critical("error decoding webhook json data: %s" % e)
+        app.logger.debug(request.data)
         abort(400)
 
     if DEBUG:
@@ -258,7 +257,7 @@ def ludobot():
     if isinstance(text, unicode):
         text = text.encode('utf-8')
     
-    logger.info("new text %s" % text)
+    app.logger.info("new text %s" % text)
 
     if text.startswith('/'):
         
@@ -281,7 +280,7 @@ def ludobot():
             'text': output
         })
     except ValueError, e:
-        logger.critical("Error sending response: %s" % e.args[0])
+        app.logger.critical("Error sending response: %s" % e.args[0])
     else:
         if DEBUG:
             print >>sys.stderr, "\n\n --- client received -- \n\n"
@@ -289,10 +288,10 @@ def ludobot():
         try:
             data = json.loads(response)
         except ValueError, e:
-            logger.warning("Error parsing json command response: %s" % e)
+            app.logger.warning("Error parsing json command response: %s" % e)
         else:
             if not data.get('ok'):
-                logger.warning("Error in json response: %s" % data)
+                app.logger.warning("Error in json response: %s" % data)
     
     
     return ""
