@@ -19,7 +19,8 @@ DEBUG = False
 
 logging.basicConfig(
     format="%(asctime)-15s %(levelname)s %(message)s",
-    level=logging.INFO if not DEBUG else logging.DEBUG
+    level=logging.INFO if not DEBUG else logging.DEBUG,
+    stream=sys.stdout
 )
 logger = logging.getLogger()
 
