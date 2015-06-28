@@ -52,7 +52,7 @@ def get(url, params=None, no_body=False):
     else:
         c.setopt(pycurl.WRITEFUNCTION, b.write)
     
-    url = url if isisntance(url, str) else url.encode('utf-8')
+    url = url if isinstance(url, str) else url.encode('utf-8')
     
     if params:
         quoted_params = urlencode(params)
