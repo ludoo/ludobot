@@ -1,11 +1,12 @@
 import sys
 import logging
 import json
-import requests
+import pycurl
 
-from flask import Flask, request, abort
-
+from urllib import urlencode
+from cStringIO import StringIO
 from pprint import pprint as pp
+from flask import Flask, request, abort
 
 
 APP_CONFIG = 'bot.cfg'
@@ -39,6 +40,60 @@ if not app.config.get('TOKEN'):
     raise SystemExit(1)
 
 
+### HTTP get via pycurl (requests complains about ssl context, and returns errors)
+
+def get(url, params=None, no_body=False):
+
+    c = pycurl.Curl()
+    b = StringIO()
+
+    if no_body:
+        c.setopt(pycurl.NOBODY, True)
+    else:
+        c.setopt(pycurl.WRITEFUNCTION, b.write)
+    
+    url = url if isisntance(url, str) else url.encode('utf-8')
+    
+    if params:
+        quoted_params = urlencode(params)
+        if '?' not in url:
+            url = '%s?%s' % (url, quoted_params)
+        elif url.endswith('?') or url.endswith('&'):
+            url += quoted_params[1:]
+        else:
+            url += quoted_params
+
+    c.setopt(pycurl.URL, url)
+    c.setopt(pycurl.CONNECTTIMEOUT, 5)
+    c.setopt(pycurl.TIMEOUT, 15)
+    c.setopt(pycurl.FOLLOWLOCATION, 1)
+    c.setopt(pycurl.MAXREDIRS, 2)
+    c.setopt(pycurl.NOSIGNAL, 1)
+    c.setopt(pycurl.ENCODING, 'utf-8')
+    c.setopt(pycurl.SSL_VERIFYPEER, False)
+    #c.setopt(pycurl.FAILONERROR, True)
+    
+    # if we cared about headers we would use pycurl.HEADERFUNCTION
+    # and if we cared about proxies we would use pycurl.PROXY and pycurl.PROXYTYPE
+    
+    try:
+        c.perform()
+    except pycurl.error, e:
+        #errno, errstr = e
+        raise ValueError('Curl error: %s' % e)
+
+    code = c.getinfo(pycurl.HTTP_CODE)
+    
+    if code == 200:
+        if no_body:
+            return ''
+
+        b.seek(0)
+        return b.read()
+
+    raise ValueError('Response error: code %s' % code)
+
+
 ### internal functions
 
 def _telegram_api_url(method_name):
@@ -52,14 +107,8 @@ def _google_finance_request(*args):
     if len(args) == 0:
         raise ValueError('missing stock symbol')
     
-    try:
-        response = requests.get(GOOGLE_URL + ','.join(args))
-    except requests.exceptions.RequestException, e:
-        raise ValueError('connection error: %s' % e)
-    
-    if reponse.status_code != 200:
-        raise ValueError('response error, status code %s' % response.status_code)
-    
+    response = get(GOOGLE_URL + ','.join(args))
+
     # fix the invalid response body
     result = response.text.replace('\n', '')
     if result.startswith('// '):
@@ -74,9 +123,6 @@ def _google_finance_request(*args):
         raise ValueError('no results')
         
     return result
-
-
-# https://api.telegram.org/bot108651160:AAHdiIVKqjOf58KkfhvkIQthoL3FSSXNCe8/setwebhook?url=https://bots.qix.it/ludo/
 
 
 def bot_command(f, *args):
@@ -257,15 +303,12 @@ def ludobot():
             
     
     try:
-        response = requests.get(_telegram_api_url('sendMessage'), params={
+        response = get(_telegram_api_url('sendMessage'), params={
             'chat_id':data['message']['chat']['id'],
             'text': output
         })
-    except requests.exceptions.RequestException, e:
-        logger.critical("Error sending response: %s" % e)
-        
-    if response.status_code != 200:
-        logger.critical("Error in server response to command, status code %s" % response.status_code)
+    except ValueError, e:
+        logger.critical("Error sending response: %s" % e.args[0])
 
     if DEBUG:
         print >>sys.stderr, "\n\n --- client received -- \n\n"
