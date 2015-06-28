@@ -12,7 +12,7 @@ from flask import Flask, request, abort
 APP_CONFIG = 'bot.cfg'
 BASE_URL = 'https://api.telegram.org/bot'
 GOOGLE_URL = 'http://finance.google.com/finance/info?client=ig&q='
-DEBUG = True
+DEBUG = False
 
 
 ### logging
@@ -248,6 +248,8 @@ def ludobot():
     if isinstance(text, unicode):
         text = text.encode('utf-8')
     
+    logger.info("new text %s" % text)
+
     if text.startswith('/'):
         
         tokens = text[1:].split()
@@ -259,7 +261,7 @@ def ludobot():
             output = 'Unsupported command'
             
     else:
-        
+
         output = 'What are you trying to say?'
             
     
