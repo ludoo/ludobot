@@ -13,7 +13,7 @@ APP_CONFIG = 'bot.cfg'
 TOKEN = '108651160:AAHdiIVKqjOf58KkfhvkIQthoL3FSSXNCe8'
 BASE_URL = 'https://api.telegram.org/bot'
 GOOGLE_URL = 'http://finance.google.com/finance/info?client=ig&q='
-DEBUG = False
+DEBUG = True
 
 
 ### logging
@@ -57,11 +57,10 @@ def get(url, params=None, no_body=False):
     if params:
         quoted_params = urlencode(params)
         if '?' not in url:
-            url = '%s?%s' % (url, quoted_params)
-        elif url.endswith('?') or url.endswith('&'):
-            url += quoted_params[1:]
-        else:
-            url += quoted_params
+            url += '?'
+        url += quoted_params
+
+    logger.debug(url)
 
     c.setopt(pycurl.URL, url)
     c.setopt(pycurl.CONNECTTIMEOUT, 5)
@@ -98,7 +97,7 @@ def get(url, params=None, no_body=False):
 
 def _telegram_api_url(method_name):
     return ''.join((
-        BASE_URL, app.config['TOKEN'], '/', method_name, '/'
+        BASE_URL, app.config['TOKEN'], '/', method_name, '?'
     ))
 
 
@@ -110,7 +109,7 @@ def _google_finance_request(*args):
     response = get(GOOGLE_URL + ','.join(args))
 
     # fix the invalid response body
-    result = response.text.replace('\n', '')
+    result = response.replace('\n', '')
     if result.startswith('// '):
         result = result[3:]
     
@@ -199,9 +198,9 @@ def _do_indexes(*args):
     buffer = []
     
     for r in result:
-        r['verbose_name'] = mapping.get(r['l'], r['l'])
+        r['verbose_name'] = mapping.get(r['t'], r['t'])
         buffer.append(
-            '%(verbose_name)s %(cp)s%% %(lt)s' % r # \next hours %(el)s %(ecp)s%% %(elt)s
+            '%(verbose_name)s %(l)s %(cp)s%% %(lt)s' % r # \next hours %(el)s %(ecp)s%% %(elt)s
         )
     
     return '\n'.join(buffer)
@@ -309,10 +308,17 @@ def ludobot():
         })
     except ValueError, e:
         logger.critical("Error sending response: %s" % e.args[0])
-
-    if DEBUG:
-        print >>sys.stderr, "\n\n --- client received -- \n\n"
-        pp(response, stream=sys.stderr)
+    else:
+        if DEBUG:
+            print >>sys.stderr, "\n\n --- client received -- \n\n"
+            pp(response, stream=sys.stderr)
+        try:
+            data = json.loads(response)
+        except ValueError, e:
+            logger.warning("Error parsing json command response: %s" % e)
+        else:
+            if not data.get('ok'):
+                logger.warning("Error in json response: %s" % data)
     
     
     return ""
