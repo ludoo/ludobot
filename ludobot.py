@@ -200,6 +200,8 @@ def _do_indexes(*args):
         '.IXIC': 'Nasdaq Composite',
         'FTSEMIB': 'FTSE MIB',
         'INDEXFTSE:UKX': 'FTSE 100',
+        'INDEXSTOXX:SX5E': 'ESTX 50 PR.EUR',
+        'EURUSD': 'Euro/USD',
     }
     
     try:
