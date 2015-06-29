@@ -191,6 +191,12 @@ def _do_chart(*args):
     return 'http://chart.finance.yahoo.com/z?s=%s&t=3d&q=c&l=on&z=l' % args[0]
 
 
+@bot_command('main currencies')
+def _do_currencies(*args):
+    
+    return _do_quote('CURRENCY:EURUSD', 'CURRENCY:EURGBP', 'CURRENCY:USDGBP').replace('CURRENCY:', '')
+
+
 @bot_command('main indexes')
 def _do_indexes(*args):
     
