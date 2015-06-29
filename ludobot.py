@@ -144,16 +144,25 @@ def bot_command(f, *args):
     return wrapper
 
 
-def get_commands():
+def get_commands(lookup_name=None):
     mod = sys.modules[__name__]
     for name in dir(mod):
         if not name.startswith('_do'):
+            continue
+        if lookup_name and name != '_do_%s' % lookup_name:
             continue
         func = getattr(mod, name)
         if not callable(func) or not hasattr(func, '_command_description'):
             continue
         yield name, func
+        if lookup_name:
+            raise StopIteration
 
+        
+def get_command(name):
+    for name, func in get_commands(name):
+        return func
+        
 
 @bot_command
 def _do_start(*args):
@@ -275,8 +284,8 @@ def ludobot():
         
         tokens = text[1:].split()
         
-        func = globals().get('_do_%s' % tokens[0])
-        if func and callable(func) and hasattr(func, '_command_description'):
+        func = get_command(tokens[0])
+        if func:
             output = func(*tokens[1:])
         else:
             output = 'Unsupported command'
