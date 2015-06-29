@@ -13,6 +13,7 @@ APP_CONFIG = 'bot.cfg'
 BASE_URL = 'https://api.telegram.org/bot'
 GOOGLE_URL = 'http://finance.google.com/finance/info?client=ig&q='
 DEBUG = False
+#DEBUG = True
 
 
 ### logging
@@ -117,8 +118,10 @@ def _google_finance_request(*args):
         result = result[3:]
     
     try:
-        result = json.loads(result)
+        result = json.loads(result, encoding='iso-8859-15')
     except ValueError, e:
+        logger.debug(type(result))
+        logger.debug(result)
         raise ValueError('error decoding result: %s' % e)
     
     if len(result) == 0:
@@ -197,6 +200,7 @@ def _do_indexes(*args):
         'NDX': 'Nasdaq 100',
         '.IXIC': 'Nasdaq Composite',
         'FTSEMIB': 'FTSE MIB',
+        'INDEXFTSE:UKX': 'FTSE 100',
     }
     
     try:
