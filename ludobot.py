@@ -1,6 +1,6 @@
 import sys
-import logging
 import json
+import logging.config
 import pycurl
 
 from urllib import urlencode
@@ -10,15 +10,19 @@ from flask import Flask, request, abort
 
 
 APP_CONFIG = 'bot.cfg'
+LOGGING_CONFIG = 'bot_logging.cfg'
 BASE_URL = 'https://api.telegram.org/bot'
 GOOGLE_URL = 'http://finance.google.com/finance/info?client=ig&q='
-DEBUG = False
-#DEBUG = True
 
+
+### logging
+
+logging.config.fileConfig(LOGGING_CONFIG, disable_existing_loggers=False)
 
 ### flask app init
 
 app = Flask(__name__)
+
 try:
     app.config.from_pyfile(APP_CONFIG)
 except IOError, e:
@@ -31,17 +35,6 @@ if not app.config.get('TOKEN'):
     raise SystemExit(1)
 
 
-### logging
-
-logging.basicConfig(
-    format="%(asctime)-15s %(levelname)s %(message)s",
-    level=logging.INFO if not DEBUG else logging.DEBUG,
-    filename=app.config.get('logging_filename'),
-    filemode=app.config.get('logging_filemode', 'a'),
-    stream=app.config.get('logging_stream', sys.stdout)
-)
-
-
 ### commands registry
 
 class BotCommands(object):
@@ -49,20 +42,23 @@ class BotCommands(object):
     def __init__(self):
         self._funcs = {}
         self._docs = {}
+        self.min_length = len('start')
         
     def get_command(self, name):
         return self._funcs.get(name)
         
-    def get_docs():
+    def get_docs(self):
         return sorted(self._docs.items())
         
     def _wrapper(self, f, doc=None, *args):
         name = f.func_name
         if not name.startswith('_do_'):
             raise SystemExit("The bot_command decorator expects a function name starting with _do_")
+        name = name[4:]
         self._funcs[name] = f
         if doc is not None:
             self._docs[name] = (doc, args)
+        self.min_length = min((self.min_length, len(name)))
         return f
         
     def register(self, f, *args):
@@ -269,11 +265,13 @@ def ludobot():
         app.logger.debug(request.data)
         abort(400)
 
-    if DEBUG:
+    if app.debug:
         print >>sys.stderr, '\n\n --- webhook received --- \n'
         pp(data, stream=sys.stderr)
     
     text = data['message'].get('text')
+    username = data['message'].get('from', {}).get('username')
+    chat = data['message'].get('chat', {}).get('title', '[direct message]')
     
     if text is None:
         return ''
@@ -281,23 +279,32 @@ def ludobot():
     if isinstance(text, unicode):
         text = text.encode('utf-8')
     
-    app.logger.info("new text %s" % text)
+    app.logger.info("user %s in chat %s %s" % (username, chat, text))
+
+    if len(text) < app.config.bot_commands.min_length:
+        return ''
 
     if text.startswith('/'):
         
         tokens = text[1:].split()
-        
-        func = app.config.bot_commands.get_command(tokens[0])
-        if func:
-            output = func(*tokens[1:])
+
+        app.logger.debug(commands._funcs.keys())
+        if tokens:
+            func = app.config.bot_commands.get_command(tokens[0])
+            if func:
+                output = func(*tokens[1:])
+            else:
+                app.logger.debug("Unrecognized command '%s'" % ' '.join(tokens))
+                return ''
         else:
-            logger.info("Unrecognized command '%s'" % ' '.join(tokens))
+            app.logger.debug("Empty command")
+            return ''
 
     else:
-
         output = 'What are you trying to say?'
-            
-    
+        
+    app.logger.debug("sending response '%s'" % output)
+
     try:
         response = get(_telegram_api_url('sendMessage'), params={
             'chat_id':data['message']['chat']['id'],
@@ -306,7 +313,7 @@ def ludobot():
     except ValueError, e:
         app.logger.critical("Error sending response: %s" % e.args[0])
     else:
-        if DEBUG:
+        if app.debug:
             print >>sys.stderr, "\n\n --- client received -- \n\n"
             pp(response, stream=sys.stderr)
         try:
@@ -318,7 +325,7 @@ def ludobot():
                 app.logger.warning("Error in json response: %s" % data)
     
     
-    return ""
+    return  ''
 
 
 if __name__ == "__main__":
