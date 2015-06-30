@@ -16,15 +16,6 @@ DEBUG = False
 #DEBUG = True
 
 
-### logging
-
-logging.basicConfig(
-    format="%(asctime)-15s %(levelname)s %(message)s",
-    level=logging.INFO if not DEBUG else logging.DEBUG,
-    stream=sys.stdout
-)
-
-
 ### flask app init
 
 app = Flask(__name__)
@@ -38,6 +29,54 @@ except IOError, e:
 if not app.config.get('TOKEN'):
     app.logger.critical("No 'TOKEN' key found in app.config")
     raise SystemExit(1)
+
+
+### logging
+
+logging.basicConfig(
+    format="%(asctime)-15s %(levelname)s %(message)s",
+    level=logging.INFO if not DEBUG else logging.DEBUG,
+    filename=app.config.get('logging_filename'),
+    filemode=app.config.get('logging_filemode', 'a'),
+    stream=app.config.get('logging_stream', sys.stdout)
+)
+
+
+### commands registry
+
+class BotCommands(object):
+    
+    def __init__(self):
+        self._funcs = {}
+        self._docs = {}
+        
+    def get_command(self, name):
+        return self._funcs.get(name)
+        
+    def get_docs():
+        return sorted(self._docs.items())
+        
+    def _wrapper(self, f, doc=None, *args):
+        name = f.func_name
+        if not name.startswith('_do_'):
+            raise SystemExit("The bot_command decorator expects a function name starting with _do_")
+        self._funcs[name] = f
+        if doc is not None:
+            self._docs[name] = (doc, args)
+        return f
+        
+    def register(self, f, *args):
+        
+        if callable(f):
+            return self._wrapper(f)
+            
+        def _wrapper(func):
+            return self._wrapper(func, f, *args)
+            
+        return _wrapper
+
+
+commands = app.config.bot_commands = BotCommands()
 
 
 ### HTTP get via pycurl (requests complains about ssl context, and returns errors)
@@ -129,61 +168,25 @@ def _google_finance_request(*args):
     return result
 
 
-def bot_command(f, *args):
-    
-    if callable(f):
-        f._command_description = None
-        f._command_args = []
-        return f
-    
-    def wrapper(func):
-        func._command_description = f
-        func._command_args = args
-        return func
-    
-    return wrapper
-
-
-def get_commands(lookup_name=None):
-    mod = sys.modules[__name__]
-    for name in dir(mod):
-        if not name.startswith('_do'):
-            continue
-        if lookup_name and name != '_do_%s' % lookup_name:
-            continue
-        func = getattr(mod, name)
-        if not callable(func) or not hasattr(func, '_command_description'):
-            continue
-        yield name, func
-        if lookup_name:
-            raise StopIteration
-
-        
-def get_command(name):
-    for name, func in get_commands(name):
-        return func
-        
-
-@bot_command
+@commands.register
 def _do_start(*args):
     
     return 'Welcome!\nThis bot supports the following commands:\n' + _do_help()
 
 
-@bot_command
+@commands.register
 def _do_help(*args):
     
     buffer = []
 
-    for name, func in sorted(get_commands()):
+    for name, docdata in app.config.bot_commands.get_docs():
         
-        if not func._command_description:
-            continue
+        doc, docargs = docdata
         
         buffer.append('/%s%s - %s' % (
-            func.func_name[4:],
-            '' if not func._command_args else (' ' + ', '.join(func._command_args)),
-            func._command_description
+            name,
+            '' if not docargs else (' ' + ', '.join(docargs)),
+            doc
         ))
     
     buffer.append('/help - this command')
@@ -191,7 +194,7 @@ def _do_help(*args):
     return '\n'.join(buffer)
 
 
-@bot_command('3-day chart for STOCK', 'STOCK')
+@commands.register('3-day chart for STOCK', 'STOCK')
 def _do_chart(*args):
 
     if len(args) == 0:
@@ -200,13 +203,13 @@ def _do_chart(*args):
     return 'http://chart.finance.yahoo.com/z?s=%s&t=3d&q=c&l=on&z=l' % args[0]
 
 
-@bot_command('main currencies')
+@commands.register('main currencies')
 def _do_currencies(*args):
     
     return _do_quote('CURRENCY:EURUSD', 'CURRENCY:EURGBP', 'CURRENCY:USDGBP').replace('CURRENCY:', '')
 
 
-@bot_command('main indexes')
+@commands.register('main indexes')
 def _do_indexes(*args):
     
     mapping = {
@@ -235,7 +238,7 @@ def _do_indexes(*args):
     return '\n'.join(buffer)
 
 
-@bot_command('quotes for STOCK [STOCK...]', 'STOCK [STOCK...]')
+@commands.register('quotes for STOCK [STOCK...]', 'STOCK [STOCK...]')
 def _do_quote(*args):
     
     # http://www.quora.com/What-do-the-following-attributes-returned-in-a-JSON-array-from-the-Google-Finance-API-mean
@@ -284,12 +287,12 @@ def ludobot():
         
         tokens = text[1:].split()
         
-        func = get_command(tokens[0])
+        func = app.config.bot_commands.get_command(tokens[0])
         if func:
             output = func(*tokens[1:])
         else:
-            output = 'Unsupported command'
-            
+            logger.info("Unrecognized command '%s'" % ' '.join(tokens))
+
     else:
 
         output = 'What are you trying to say?'
