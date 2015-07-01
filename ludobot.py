@@ -258,6 +258,7 @@ def _do_quote(*args):
 @app.route("/ludo/", methods=['POST'])
 def ludobot():
     
+    # TODO: keep utf-8 encoded text instead of decoding then re-encoding
     try:
         data = json.loads(request.data)
     except ValueError, e:
@@ -278,6 +279,10 @@ def ludobot():
     
     if isinstance(text, unicode):
         text = text.encode('utf-8')
+    if isinstance(username, unicode):
+        username = username.encode('utf-8')
+    if isinstance(chat, unicode):
+        chat = chat.encode('utf-8')
     
     app.logger.info("user %s in chat %s %s" % (username, chat, text))
 
