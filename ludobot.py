@@ -215,6 +215,7 @@ def _do_indexes(*args):
         'FTSEMIB': 'FTSE MIB',
         'INDEXFTSE:UKX': 'FTSE 100',
         'INDEXSTOXX:SX5E': 'ESTX 50 PR.EUR',
+        'INDEXDB:DAX': 'DAX',
         'EURUSD': 'Euro/USD',
     }
     
@@ -292,10 +293,13 @@ def ludobot():
     if text.startswith('/'):
         
         tokens = text[1:].split()
+        command_name = tokens[0]
+        if '@' in command_name:
+           command_name, sep, bot_name = command_name.partition('@') 
 
         app.logger.debug(commands._funcs.keys())
         if tokens:
-            func = app.config.bot_commands.get_command(tokens[0])
+            func = app.config.bot_commands.get_command(command_name)
             if func:
                 output = func(*tokens[1:])
             else:
