@@ -3,10 +3,11 @@ import json
 import logging.config
 import pycurl
 
-from urllib import urlencode
 from cStringIO import StringIO
-from pprint import pprint as pp
 from flask import Flask, request, abort
+from pprint import pprint as pp
+from urllib import urlencode
+from xml.sax.saxutils import escape
 
 
 APP_CONFIG = 'bot.cfg'
@@ -229,7 +230,7 @@ def _do_indexes(*args):
     for r in result:
         r['verbose_name'] = mapping.get(r['t'], r['t'])
         buffer.append(
-            '%(verbose_name)s %(l)s %(cp)s%% %(lt)s' % r # \next hours %(el)s %(ecp)s%% %(elt)s
+            '<b>%(verbose_name)s</b> %(l)s %(cp)s%% <i>%(lt)s</i>' % r # \next hours %(el)s %(ecp)s%% %(elt)s
         )
     
     return '\n'.join(buffer)
@@ -250,7 +251,7 @@ def _do_quote(*args):
     for r in result:
         app.logger.debug(', '.join(r.keys()))
         buffer.append(
-            '%(e)s:%(t)s %(l)s %(cp)s%% %(lt)s' % r # \next hours %(el)s %(ecp)s%% %(elt)s
+            '%(e)s:<b>%(t)s</b> %(l)s %(cp)s%% <i>%(lt)s</i>' % r # \next hours %(el)s %(ecp)s%% %(elt)s
         )
     
     return '\n'.join(buffer)
@@ -271,9 +272,12 @@ def ludobot():
         print >>sys.stderr, '\n\n --- webhook received --- \n'
         pp(data, stream=sys.stderr)
     
-    text = data['message'].get('text')
-    username = data['message'].get('from', {}).get('username')
-    chat = data['message'].get('chat', {}).get('title', '[direct message]')
+    message = data.get('message', data.get('edited_message'))
+    if not message:
+        app.logger.critical("no message, keys found %s", data.keys())
+    text = message.get('text')
+    username = message.get('from', {}).get('username')
+    chat = message.get('chat', {}).get('title', '[direct message]')
     
     if text is None:
         return ''
@@ -316,8 +320,8 @@ def ludobot():
 
     try:
         response = get(_telegram_api_url('sendMessage'), params={
-            'chat_id':data['message']['chat']['id'],
-            'text': output
+            'chat_id':message['chat']['id'],
+            'text': output, 'parse_mode': 'HTML'
         })
     except ValueError, e:
         app.logger.critical("Error sending response: %s" % e.args[0])
